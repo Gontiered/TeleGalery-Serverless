@@ -1,0 +1,893 @@
+/* TeleGallery — un solo sistema, con las reglas de taste-skill
+   (Leonxlnx/taste-skill) aplicadas a una Mini App de Telegram:
+   un acento, grises para todo lo demás, una escala de espaciado, una de
+   tipo y una familia de radios; texto que se lee de 16px o más; cada
+   botón, tarjeta y control responde al toque; nada de decoración sobre
+   las fotos. La paleta y la tipografía vienen del tema de Telegram
+   (--tg-theme-*), nunca de colores fijos: la app vive dentro de
+   Telegram y su modo claro/oscuro manda. Lo que NO se aplicó de
+   taste-skill, a propósito: el deal de paleta y tipografía, el hero, las
+   secciones de landing, los efectos y el gate — son para páginas de
+   marketing, no para una app. Ver docs/architecture.md. */
+
+:root {
+  color-scheme: light dark;
+  /* Tokens de espaciado: no se usan valores sueltos fuera de estos. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  /* Escala de tipo: el texto que se lee es de 16px o más; 13px solo para
+     etiquetas y metadatos. El peso y el color mandan antes que el tamaño. */
+  --text-title: 20px;
+  --text-body: 16px;
+  --text-supporting: 13px;
+  --text-meta: 13px;
+  /* Una familia de radios: controles 12px, tarjetas y menú 14px,
+     pastillas para los botones. */
+  --r-md: 12px;
+  --r-lg: 14px;
+  --radius-pill: 999px;
+  /* Movimiento: 150ms al entrar, 120ms al salir, 90ms al presionar;
+     una sola curva ease-out; solo transform, escala y opacidad. */
+  --m-in: 150ms;
+  --m-out: 120ms;
+  --m-press: 90ms;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  /* Un solo acento: el azul de Telegram. Todo lo demás es gris. */
+  --accent: var(--tg-theme-button-color, #2481cc);
+  /* Escala de grises clara. El texto nunca es negro puro. */
+  --bg: var(--tg-theme-bg-color, #ffffff);
+  --surface: var(--tg-theme-secondary-bg-color, #f7f7f8);
+  --border: #e5e5e7;
+  --text: var(--tg-theme-text-color, #1c1c1e);
+  --text-secondary: var(--tg-theme-hint-color, #6b6b70);
+  --text-hint: #8e8e93;
+  --viewer-bg: #101012;
+  --viewer-text: #f2f2f3;
+  --viewer-secondary: #a1a1a6;
+  --viewer-border: rgba(255, 255, 255, .12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* El modo oscuro reconstruye su propia escala de grises, no invierte
+       los colores. El acento baja de intensidad sobre fondo oscuro. */
+    --accent: #5aa9e6;
+    --bg: var(--tg-theme-bg-color, #101012);
+    --surface: var(--tg-theme-secondary-bg-color, #1c1c1e);
+    --border: #2c2c2e;
+    --text: var(--tg-theme-text-color, #f2f2f3);
+    --text-secondary: var(--tg-theme-hint-color, #a1a1a6);
+    --text-hint: #636366;
+  }
+}
+
+* { box-sizing: border-box; }
+/* Sin esto, .viewer (display:flex) se muestra aunque tenga el atributo
+   hidden, y el visor tapa toda la galería con su fondo casi negro. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-body);
+  line-height: 1.45;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Encabezado: título y texto de apoyo, sin tipografía heroica en una
+   pantalla densa. */
+.page-header { padding: var(--s5) var(--s4) var(--s2); }
+.page-header h1 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.supporting {
+  margin: var(--s1) 0 0;
+  font-size: var(--text-supporting);
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+/* Buscador: superficie gris, borde sutil (no sombra), foco visible. */
+.toolbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  gap: var(--s2);
+  padding: var(--s2) var(--s4);
+  background: var(--bg);
+  z-index: 5;
+}
+.toolbar input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  /* 16px o más: en iOS un input menor hace zoom automático al enfocarlo. */
+  font-size: 16px;
+}
+.toolbar input::placeholder { color: var(--text-hint); }
+.toolbar input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Un par de botones, y nada más: el primario relleno con el acento
+   (una sola acción principal por vista) y el secundario en pastilla
+   con borde. Los dos miden 44px y responden al toque. */
+.btn-primary {
+  min-height: 44px;
+  padding: var(--s2) var(--s5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--tg-theme-button-text-color, #fff);
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--m-press) var(--ease), opacity var(--m-out) var(--ease);
+}
+.btn-primary:active { transform: scale(.985); opacity: .92; }
+.btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.select-btn {
+  min-height: 44px;
+  padding: var(--s2) var(--s5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-body);
+  cursor: pointer;
+  transition: background var(--m-out) var(--ease), transform var(--m-press) var(--ease);
+}
+.select-btn { flex: none; font-weight: 600; }
+.select-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.select-btn:active { background: var(--border); transform: scale(.985); }
+
+/* Scroll infinito: un centinela invisible al final de la cuadrícula;
+   cuando entra en pantalla se carga la siguiente página sola, sin
+   botón. El aviso solo se ve mientras carga esa página. */
+.sentinel { height: 1px; }
+.loading-more {
+  margin: 0;
+  padding: var(--s3) var(--s4) var(--s5);
+  text-align: center;
+  font-size: var(--text-meta);
+  color: var(--tg-theme-hint-color, var(--text-secondary));
+}
+
+/* Estado y contador: etiqueta de sección (mayúsculas, pequeña) y el
+   número manda, la unidad es más pequeña. */
+.status {
+  margin: 0;
+  padding: var(--s4) var(--s4) var(--s2);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--tg-theme-section-header-text-color, var(--text-secondary));
+}
+.status strong {
+  font-size: var(--text-body);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Estado vacío: texto claro y una sola acción principal. Sin iconos
+   dibujados ni adornos: la foto es el contenido, no la decoración. */
+.empty {
+  padding: var(--s7) var(--s4);
+  text-align: center;
+}
+.empty h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.empty p {
+  margin: var(--s2) auto 0;
+  max-width: 320px;
+  font-size: var(--text-body);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.empty .btn-primary { margin-top: var(--s5); }
+
+/* Cuadrícula: tarjetas solo con radio contenido y borde sutil, sin
+   sombra y sin texto encima de la foto. Proporción fija para que no haya
+   saltos de layout mientras cargan las miniaturas. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s1);
+  padding: 0 var(--s4);
+}
+/* Línea de tiempo estilo Google Fotos: encabezado de fecha que ocupa
+   las tres columnas de la cuadrícula. */
+.date-header {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--s4) 0 var(--s2);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* Desplazamiento rápido estilo Google Fotos: barrita en el borde
+   derecho para volar por las fotos, con la fecha mientras se arrastra.
+   Va por debajo de la barra de búsqueda fija, para no tapar sus
+   botones cuando la barrita está arriba del todo. */
+.fast-scroll {
+  position: fixed;
+  top: calc(60px + var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 0px)));
+  right: 0;
+  bottom: calc(var(--s3) + var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  width: 24px;
+  z-index: 4;
+}
+.fast-scroll-thumb {
+  position: absolute;
+  right: 0;
+  width: 24px;
+  min-height: 32px;
+  touch-action: none;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.fast-scroll-thumb:active { cursor: grabbing; }
+.fast-scroll-bar {
+  width: 4px;
+  height: 100%;
+  min-height: 32px;
+  margin-right: 4px;
+  border-radius: 2px;
+  background: var(--text-secondary);
+  opacity: .7;
+  transition: opacity var(--m-out) var(--ease), width var(--m-out) var(--ease);
+}
+.fast-scroll.dragging .fast-scroll-bar {
+  width: 6px;
+  opacity: 1;
+}
+.fast-scroll-bubble {
+  position: fixed;
+  right: 36px;
+  z-index: 6;
+  transform: translateY(-50%);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--tg-theme-section-bg-color, var(--surface));
+  color: var(--text);
+  font-size: var(--text-body);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.card {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--border);
+  /* Las tarjetas usan el fondo de sección de Telegram y radio 14px. */
+  border-radius: var(--r-lg);
+  background: var(--tg-theme-section-bg-color, var(--surface));
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--m-press) var(--ease);
+}
+.card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.card:active { transform: scale(.985); }
+.card .preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--m-in) var(--ease);
+}
+.card .preview.loaded { opacity: 1; }
+/* Marca de selección: círculo arriba a la izquierda, visible solo en
+   modo de selección. Al marcar, se rellena con el color de acento y la
+   tarjeta se atenúa con un borde de acento. */
+.card .check {
+  display: none;
+  position: absolute;
+  top: var(--s2);
+  left: var(--s2);
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, .35);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+}
+.grid.selecting .card .check { display: flex; }
+.card.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+.card.selected .check {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.card.selected .preview.loaded { opacity: .55; }
+
+/* Fila de vuelta en una carpeta: atrás, nombre de la carpeta y, solo
+   para carpetas reales, borrarla (las fotos vuelven a Todas). */
+.back-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s4) 0;
+}
+.back-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--m-out) var(--ease);
+}
+.back-btn:active { background: var(--surface); }
+.back-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.album-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-title);
+  font-weight: 700;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.album-delete {
+  flex: none;
+  min-height: 44px;
+  padding: var(--s2) var(--s3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--tg-theme-destructive-text-color, #e53935);
+  font-size: var(--text-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+.album-delete:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.album-delete:active { background: var(--surface); }
+
+/* Vista de carpetas: dos columnas, portada arriba y nombre con
+   contador debajo, como en Google Fotos. */
+.grid.albums {
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2);
+  padding-top: var(--s2);
+}
+.album-card {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--tg-theme-section-bg-color, var(--surface));
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition: transform var(--m-press) var(--ease);
+}
+.album-card:active { transform: scale(.985); }
+.album-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.album-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--m-in) var(--ease);
+}
+.album-cover.loaded { opacity: 1; }
+
+/* Hashtags: sección bajo las carpetas, una pastilla por pie de foto
+   (miniatura redonda + texto + contador). */
+.tags-section { margin-top: var(--s6); }
+.tags-title {
+  margin: 0;
+  padding: var(--s4) var(--s4) var(--s2);
+  font-size: var(--text-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--tg-theme-section-header-text-color, var(--text-secondary));
+}
+.tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  padding: 0 var(--s4) var(--s4);
+}
+.tag-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 44px;
+  padding: var(--s1) var(--s4) var(--s1) var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-body);
+  cursor: pointer;
+  transition: background var(--m-out) var(--ease), transform var(--m-press) var(--ease);
+}
+.tag-chip:active { background: var(--border); transform: scale(.985); }
+.tag-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tag-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--m-in) var(--ease);
+}
+.tag-thumb.loaded { opacity: 1; }
+.tag-count {
+  color: var(--text-secondary);
+  font-size: var(--text-meta);
+}
+.album-cover-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  padding: var(--s3);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  font-weight: 600;
+  text-align: center;
+}
+.album-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  padding: var(--s3);
+}
+.album-name {
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.album-count {
+  font-size: var(--text-supporting);
+  color: var(--text-secondary);
+}
+.album-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  border-style: dashed;
+  background: transparent;
+}
+.album-new-label {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Hoja inferior para mover fotos o crear una carpeta: lista de
+   carpetas, campo para el nombre nuevo y cancelar. */
+.sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+}
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 70vh;
+  overflow: auto;
+  padding: var(--s4) var(--s4) calc(var(--s4) + var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  border-top: 1px solid var(--border);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--bg);
+}
+.sheet h2 {
+  margin: 0 0 var(--s3);
+  font-size: var(--text-title);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--s2) 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+.sheet-row:active { background: var(--surface); }
+.sheet-row-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sheet-row-count {
+  flex: none;
+  font-size: var(--text-supporting);
+  color: var(--text-secondary);
+}
+.sheet-create {
+  display: flex;
+  gap: var(--s2);
+  padding-top: var(--s3);
+}
+.sheet-create input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 var(--s3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+}
+.sheet-create input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sheet-cancel {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--s2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  font-weight: 700;
+  cursor: pointer;
+}
+.sheet-cancel:active { background: var(--surface); }
+.sheet-cancel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Barra de selección múltiple: fija abajo, con el contador y las
+   acciones Eliminar (destructivo) y Cancelar. */
+.select-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4) calc(var(--s3) + var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  z-index: 20;
+}
+.select-count {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text);
+}
+.select-move,
+.select-delete,
+.select-cancel {
+  flex: none;
+  min-height: 44px;
+  padding: var(--s2) var(--s3);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: var(--text-body);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--m-out) var(--ease), transform var(--m-press) var(--ease);
+}
+.select-delete { color: var(--tg-theme-destructive-text-color, #e53935); }
+.select-delete:disabled,
+.select-move:disabled { opacity: .4; }
+.select-cancel,
+.select-move { color: var(--text-secondary); }
+.select-move:active,
+.select-delete:active,
+.select-cancel:active { background: var(--surface); transform: scale(.985); }
+.select-move:focus-visible,
+.select-delete:focus-visible,
+.select-cancel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+body.selecting main { padding-bottom: 72px; }
+
+.hint {
+  margin: 0;
+  padding: 0 var(--s4) calc(var(--s5) + var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  text-align: center;
+  font-size: var(--text-supporting);
+  color: var(--text-secondary);
+}
+
+/* Visor estilo Google Fotos: la foto llena la pantalla sobre fondo
+   negro, las barras se esconden al tocarla, y se puede ampliar con
+   doble toque o pellizco y pasar de foto deslizando con el dedo. */
+.viewer {
+  position: fixed;
+  inset: 0;
+  background: var(--viewer-bg);
+  color: var(--viewer-text);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Barras superior e inferior: se desvanecen al tocar la foto y
+   vuelven con otro toque. */
+.viewer-top,
+.viewer-bottom {
+  transition: opacity var(--m-in) var(--ease), transform var(--m-in) var(--ease);
+}
+.viewer.chrome-hidden .viewer-top {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+.viewer.chrome-hidden .viewer-bottom {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+/* Barra superior: atrás, título (pie de foto + fecha y contador) y
+   detalles. El degradado es solo un velo para que el texto se lea
+   sobre la foto, no decoración. */
+.viewer-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: calc(var(--s2) + var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 0px))) var(--s3) var(--s6);
+  background: linear-gradient(rgba(0, 0, 0, .55), transparent);
+  z-index: 12;
+}
+.viewer-title {
+  flex: 1;
+  min-width: 0;
+}
+.viewer-caption {
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.viewer-meta {
+  margin-top: 1px;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  color: var(--viewer-secondary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.icon-btn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  line-height: 1;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--viewer-text);
+  font-size: 22px;
+  cursor: pointer;
+  transition: background var(--m-out) var(--ease);
+}
+.icon-btn:active { background: rgba(255, 255, 255, .08); }
+.icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Escenario: ocupa todo el visor; los gestos (deslizar, pellizcar)
+   se gestionan a mano, así que el navegador no debe intervenir. */
+.viewer-stage {
+  flex: 1;
+  overflow: hidden;
+  touch-action: none;
+  position: relative;
+}
+/* Carril de tres diapositivas (anterior, actual, siguiente): al
+   deslizar sigue el dedo y al soltar anima hasta la foto vecina. */
+.viewer-track {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+}
+.viewer-track.animating { transition: transform var(--m-out) var(--ease); }
+.viewer-slide {
+  flex: 0 0 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.viewer-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.viewer-slide img.loaded { opacity: 1; }
+/* La miniatura estirada mientras llega la completa: borrosa y un poco
+   más grande para que el desenfoque no deje bordes claros. */
+.viewer-slide img.blur {
+  filter: blur(14px);
+  transform: scale(1.02);
+}
+.slide-loading {
+  position: absolute;
+  color: var(--viewer-secondary);
+  font-size: var(--text-body);
+}
+/* Barra inferior de acciones, estilo Google Fotos: Ver en Telegram,
+   Mover y Eliminar, siempre a la vista. */
+.viewer-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  padding: var(--s2) var(--s4) calc(var(--s3) + var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+  z-index: 12;
+}
+.viewer-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  min-height: 44px;
+  padding: var(--s1);
+  border: 0;
+  background: transparent;
+  color: var(--viewer-text);
+  font-size: var(--text-meta);
+  cursor: pointer;
+}
+/* Iconos SVG de línea (estilo Feather): trazo fino del color del
+   texto, sin emojis. El de Eliminar hereda el rojo destructivo. */
+.viewer-action-icon {
+  width: 24px;
+  height: 24px;
+  line-height: 0;
+}
+.viewer-action-icon svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+.viewer-action.danger { color: var(--tg-theme-destructive-text-color, #ff453a); }
+.viewer-action:active { opacity: .6; }
+.viewer-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Hoja de detalles: fecha, tamaño, dimensiones, carpeta y pie. */
+.details-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s2) var(--s4);
+  font-size: var(--text-body);
+  line-height: 1.45;
+}
+.details-list dt {
+  color: var(--text-secondary);
+}
+.details-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Respetar movimiento reducido: sin transiciones ni escalas al tocar. */
+@media (prefers-reduced-motion: reduce) {
+  .card .preview,
+  .card,
+  .btn-primary,
+  .select-btn,
+  .select-delete,
+  .select-cancel,
+  .icon-btn,
+  .viewer-top,
+  .viewer-bottom,
+  .viewer-track.animating { transition: none; }
+  .card:active,
+  .btn-primary:active,
+  .select-btn:active,
+  .select-delete:active,
+  .select-cancel:active { transform: none; }
+}

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TeleGallery</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="page-header">
+  <h1>TeleGallery</h1>
+  <p id="subtitle" class="supporting">Tu galería de fotos en Telegram</p>
+</header>
+
+<div id="backRow" class="back-row" hidden>
+  <button id="backBtn" class="back-btn" type="button" aria-label="Volver a carpetas">‹</button>
+  <h2 id="albumTitle" class="album-title">Todas las fotos</h2>
+  <button id="deleteAlbumBtn" class="album-delete" type="button" hidden>Eliminar</button>
+</div>
+
+<div id="toolbar" class="toolbar" hidden>
+  <label class="visually-hidden" for="search">Buscar fotos por pie de foto</label>
+  <input id="search" type="search" placeholder="Buscar por pie de foto…" autocomplete="off">
+  <button id="selectAll" class="select-btn" type="button" hidden>Todo</button>
+  <button id="selectMode" class="select-btn" type="button">Seleccionar</button>
+</div>
+
+<main>
+  <p id="status" class="status" role="status">Cargando…</p>
+  <div id="empty" class="empty" hidden>
+    <h2>Todavía no hay fotos</h2>
+    <p>Manda fotos al canal y aparecen aquí solas.</p>
+    <button id="emptyOpenBot" class="btn-primary" type="button">Mandar fotos al canal</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <section id="tagsSection" class="tags-section" aria-label="Hashtags" hidden>
+    <h2 class="tags-title">Hashtags</h2>
+    <div id="tagsList" class="tags-list"></div>
+  </section>
+  <div id="sentinel" class="sentinel" aria-hidden="true" hidden></div>
+  <p id="loadingMore" class="loading-more" hidden>Cargando más fotos…</p>
+</main>
+
+<div id="fastScroll" class="fast-scroll" hidden>
+  <div id="fastScrollThumb" class="fast-scroll-thumb"><div class="fast-scroll-bar"></div></div>
+</div>
+<div id="fastScrollBubble" class="fast-scroll-bubble" hidden></div>
+
+<div id="viewer" class="viewer" hidden role="dialog" aria-label="Vista de foto">
+  <div class="viewer-top" id="viewerTop">
+    <button id="viewerBack" class="icon-btn" aria-label="Atrás">←</button>
+    <div class="viewer-title">
+      <div id="viewerCaption" class="viewer-caption"></div>
+      <div id="viewerMeta" class="viewer-meta"></div>
+    </div>
+    <button id="viewerInfo" class="icon-btn" aria-label="Detalles">ⓘ</button>
+  </div>
+  <div id="viewerStage" class="viewer-stage">
+    <div id="viewerTrack" class="viewer-track"></div>
+  </div>
+  <div class="viewer-bottom" id="viewerBottom">
+    <button id="viewerView" class="viewer-action" type="button"><span class="viewer-action-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></span><span>Ver en Telegram</span></button>
+    <button id="viewerMove" class="viewer-action" type="button"><span class="viewer-action-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span><span>Mover</span></button>
+    <button id="viewerDelete" class="viewer-action danger" type="button"><span class="viewer-action-icon" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg></span><span>Eliminar</span></button>
+  </div>
+  <div id="detailsSheet" class="sheet-wrap" hidden>
+    <div class="sheet-backdrop" id="detailsBackdrop"></div>
+    <div class="sheet" role="dialog" aria-label="Detalles de la foto">
+      <h2 id="detailsTitle">Detalles</h2>
+      <dl id="detailsList" class="details-list"></dl>
+      <button id="detailsClose" class="sheet-cancel" type="button">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<p class="hint">Para agregar fotos, mándalas al canal en Telegram. Aparecen aquí solas.</p>
+
+<div id="selectBar" class="select-bar" hidden>
+  <span id="selectCount" class="select-count" role="status">0 seleccionadas</span>
+  <button id="selectMove" class="select-move" type="button">Mover</button>
+  <button id="selectDelete" class="select-delete" type="button">Eliminar</button>
+  <button id="selectCancel" class="select-cancel" type="button">Cancelar</button>
+</div>
+
+<div id="moveSheetWrap" class="sheet-wrap" hidden>
+  <div id="moveBackdrop" class="sheet-backdrop"></div>
+  <div id="moveSheet" class="sheet" role="dialog" aria-label="Mover a carpeta">
+    <h2 id="moveSheetTitle">Mover a carpeta</h2>
+    <div id="moveList" class="sheet-list"></div>
+    <div id="moveCreate" class="sheet-create" hidden>
+      <input id="moveNewName" type="text" placeholder="Nombre de la carpeta" maxlength="60" autocomplete="off">
+      <button id="moveCreateBtn" class="btn-primary" type="button">Crear carpeta</button>
+    </div>
+    <button id="moveCancel" class="sheet-cancel" type="button">Cancelar</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

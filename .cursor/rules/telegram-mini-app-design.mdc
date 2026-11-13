@@ -1,0 +1,50 @@
+---
+description: Telegram Mini App design rules for TeleGallery (mobile web app inside Telegram). Native Telegram UI, theming, safe areas, haptics.
+globs: ["site/**/*"]
+alwaysApply: false
+---
+
+# Telegram Mini App Design Rules (TeleGallery)
+
+Fuente: skill `telegram-mini-app` (guía basada en core.telegram.org/bots/webapps).
+La UI debe sentirse nativa de Telegram, no una web genérica dentro de Telegram.
+
+## Principios
+
+- Mobile-first: todo responsive y pensado para el viewport del teléfono.
+- Sentirse nativo: imitar los componentes y el comportamiento de Telegram.
+- Animaciones suaves (60fps); en Android de gama baja, reducirlas.
+- Accesibilidad: todo input e imagen con su etiqueta.
+- Adaptarse al tema: usar las variables CSS de Telegram para todos los colores.
+- Respetar las áreas seguras, sobre todo a pantalla completa.
+
+## Colores
+
+- Nunca hardcodear colores. Usar las variables `--tg-theme-*` que inyecta el SDK, siempre con valor de respaldo en `var()`.
+- Fondo de página: `var(--tg-theme-secondary-bg-color)`.
+- Tarjetas/secciones: `var(--tg-theme-section-bg-color)` con `border-radius: 14px`.
+- Etiquetas de sección: mayúsculas, fuente pequeña, `var(--tg-theme-section-header-text-color)`.
+- Texto de ayuda: fuente más pequeña, `var(--tg-theme-hint-color)`.
+- Acciones destructivas: `var(--tg-theme-destructive-text-color)`.
+
+## Botones nativos (usar estos, no inventar botones propios)
+
+- Acción primaria: `Telegram.WebApp.MainButton` (texto, `show()`/`hide()`, `showProgress()` al pulsar). Siempre `offClick(handler)` antes de registrar un handler nuevo.
+- Acción secundaria: `SecondaryButton`, igual que MainButton.
+- Volver: `Telegram.WebApp.BackButton` (`show()`/`hide()`, `onClick`/`offClick`) en vez de un botón propio.
+- Contenido principal con padding inferior de ~80-100px para que el MainButton no tape nada.
+
+## Formularios y texto
+
+- Inputs con `font-size` de 16px o más: en iOS un input menor hace zoom automático al enfocar.
+- Todo input con su `<label>`; toda imagen con `alt` específico.
+
+## Áreas seguras
+
+- Usar `--tg-safe-area-inset-*` y `--tg-content-safe-area-inset-*` (con `env(safe-area-inset-*)` de respaldo) en paddings superior e inferior.
+- Escuchar `safeAreaChanged` y `contentSafeAreaChanged` si el layout depende de ellas.
+
+## Táctil y rendimiento
+
+- Haptics: `HapticFeedback.selectionChanged()` al cambiar de selección, `notificationOccurred('success')` al completar una acción.
+- Verificar fuera de Telegram: envolver cada llamada a `tg` con una comprobación y ofrecer UI alternativa (un botón normal) cuando no hay SDK.

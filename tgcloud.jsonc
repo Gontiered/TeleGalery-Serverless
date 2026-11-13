@@ -1,0 +1,7 @@
+{
+  // Mini App estática (TeleGallery) servida en https://app<app_id>.tgcloud.ai/
+  "static": {
+    "source": "site"
+  },
+  "$schema": "./node_modules/@tgcloud/cli/schema/tgcloud.json"
+}
